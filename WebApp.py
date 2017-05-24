@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request
 import cx_Oracle
 
-
 app = Flask(__name__)
 
 
@@ -13,7 +12,15 @@ def index():
 @app.route('/dbsearch', methods=['POST', 'GET'])
 def search():
     text = request.form["searchword"]
-    db = cx_Oracle.connect('')
+
+    db = cx_Oracle.connect('owe7_pg2', 'blaat1234', 'cytosine.nl:1521/XE')
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM ORGANISME')
+    result = cursor.fetchall()
+    for regel in result:
+        print(regel)
+    print(db.version)
+
     return str(results(text))
 
 
