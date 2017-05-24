@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request
+import cx_Oracle
+
 
 app = Flask(__name__)
 
@@ -10,8 +12,8 @@ def index():
 
 @app.route('/dbsearch', methods=['POST', 'GET'])
 def search():
-    # resultslist = list()
     text = request.form["searchword"]
+    db = cx_Oracle.connect('')
     return str(results(text))
 
 
