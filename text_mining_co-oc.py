@@ -2,6 +2,7 @@ from Bio import Entrez
 Entrez.email = "koenrademaker@outlook.com"
 
 keywords = ["5-LOX", "8-LOX", "9-LOX", "9/13-LOX", "10-LOX", "11-LOX", "12-LOX", "13-LOX", "15-LOX"]
+
 applications = ["bleaching", "effect", "application", "pathway", "role", "production", "inhibits", "exhibits"]
 synonym_list = [[["3-LOX"], ["hydroperoxy icosatetraenoate dehydratase", "epidermal lipoxygenase-3", "hydroperoxy icosatetraenoate isomerase", "epidermal lipoxygenase-3", "soybean lipoxygenase-3"]]
 ,[["5-LOX"], ["arachidonate 5-lipoxygenase", "5-lipoxygenase", "5DELTA-lipoxygenase", "arachidonate 5-lipoxygenase", "arachidonic 5-lipoxygenase", "arachidonic acid 5-lipoxygenase", "C-5-lipoxygenase", "DELTA5-lipoxygenase", "lipoxygenase 15", "lipoxygenase 5", "lipoxygenase-1", "PMNL 5-lipoxygenase"]]
@@ -13,8 +14,11 @@ synonym_list = [[["3-LOX"], ["hydroperoxy icosatetraenoate dehydratase", "epider
 ,[["12-LOX"], ["arachidonate 12-lipoxygenase", "(12R)-lipoxygenase", "11R-lipoxygenase", "12(R)-lipoxygenase", "12(S)-lipoxygenase", "12-lipoxygenase", "12/15 lipoxygenase", "12/15-lipoxygenase", "12/15-lipoxygenases", "12DELTA-lipoxygenase", "12R-lipoxygenase", "12S-lipoxygenase", "2/15-lipoxygenase", "arachidonate 12-lipoxygenase", "C-12 lipoxygenase", "DELTA 12-lipoxygenase", "epidermal-type lipoxygenase", "human platelet 12-lipoxygenase", "leukocyte-type 12-lipoxygenase", "leukocyte-type 12/15-lipoxygenase", "leukocyte-type lipoxygenase", "lipoxygenase 12", "platelet-type 12(S)-lipoxygenase", "platelet-type 12-human lipoxygenase", "platelet-type 12-lipoxygenase", "Platelet-type lipoxygenase 12"]]
 ,[["13-LOX"], ["linoleate 13S-lipoxygenase", "(13S)-lipoxygenase", "13-lipoxygenase", "13S-lipoxygenase", "15-lipoxygenase-1", "iron 13S-lipoxygenase", "linoleate 13-lipoxygenase", "linoleate 13S-lipoxygenase", "lipoxygenase 2", "lipoxygenase-1", "lipoxygenase-2", "lipoxygenase-3", "lipoxygenase-4", "lipoxygenase-6", "soybean lipoxygenase-1"]]
 , [["15-LOX"], ["12/15 lipoxygenase", "12/15-lipoxygenase", "15(S)-lipoxygenase-1", "15-lipoxygenase", "15-lipoxygenase 1", "15-lipoxygenase 2", "15-lipoxygenase type 1", "15-lipoxygenase type 2", "15-lipoxygenase type-1", "15-lipoxygenase-1", "15-lipoxygenase-2", "15-lipoxygenase-I", "15S-lipoxygenase", "arachidonate 15-lipoxygenase", "arachidonate 15-lipoxygenase-1", "arachidonic acid 15-lipoxygenase", "endothelial 15-lipoxygenase-1", "human prostate epithelial 15-lipoxygenase-2", "linoleic acid omega-6-lipoxygenase", "lipoxygenase L-1", "lipoxygenase-1", "omega-6 lipoxygenase", "reticulocyte 15-lipoxygenase-1", "reticulocyte-type 15-human lipoxygenase", "reticulocyte-type 15-lipoxygenase", "soybean 15-lipoxygenase", "soybean lipoxygenase-3"]]]
+
 relations = []
 relation_count = []
+
+combined_list = keywords + applications
 
 
 def text_mining_get_count(query):
@@ -59,4 +63,7 @@ def cross_reference(keyword, application):
 for keyword in keywords:
     for application in applications:
         cross_reference(keyword, application)
-# Resultaten zijn opgeslagen in de lijsten -relations en -relation_count, de id's zijn hetzelfde voor elke record, dus -relations[0] hoort bij -relation_count[0] enz.
+# Een koppeling tussen keyword en applicatie is terug te vinden in relation, waarbij item 0 het keyword is en item 1 de applicatie is.
+# Een aantal overeenkomsten tussen keyword en applicatie is terug te vinden in relation_count, welke een integer teruggeeft.
+# De identifiers voor relation en relation_count zijn gelijk, dus bij relation[15] hoort relation_count[15]
+# Zowel de keywords als applicaties zijn terug te vinden in combined_list
