@@ -1,17 +1,24 @@
 # Author:   Koen Rademaker
-# Date:     07/06/2017
-# Version:  0.4
+# Date:     11/06/2017
+# Version:  0.5
 # Status:   In progress
 
 #   TO-DO LIST
-# Set up local SQL Developer database to test insert statements.
-# Execute SQL statements to local database with cx_Oracle, including using variables in statements.
-# Complete the function save_to_database() which saves (some of) the results from text_retrieval() to the local database.
-# Bring all functions together in main().
+# Set up local SQL Developer database to test insert statements.																COMPLETE
+# Execute SQL statements to local database with cx_Oracle, including using variables in statements for text_retrieval results.	COMPLETE
+# Execute SQL statements to local database with cx_Oracle, including using variables in statements for text_analysis results.	INCOMPLETE
+# Complete the function write_retrieval_to_database() which saves the results from text_retrieval() to the local database.		COMPLETE	
+# Complete the function write_analysis_to_database() which saves the results from text_analysis() to the local database.		INCOMPLETE	
+# Bring all functions together in main().																						INCOMPLETE
 
 from Bio import Entrez
 Entrez.email = "koenrademaker@outlook.com"
 # Report problems with accessing PubMed to this e-mail address.
+import cx_Oracle
+dsnStr = cx_Oracle.makedsn("localhost", "1521", "orcl")
+db = cx_Oracle.connect(user="hr", password="blaat1234", dsn=dsnStr)
+cursor = db.cursor()
+# Connection to the database.
 
 lox_synonym_list = [["3-LOX", ["3-lipoxygenase", "hydroperoxy icosatetraenoate dehydratase", "epidermal lipoxygenase-3", "hydroperoxy icosatetraenoate isomerase", "lipoxygenase-3", "soybean lipoxygenase-3"]]
 ,["5-LOX", ["5-lipoxygenase", "arachidonate 5-lipoxygenase", "5DELTA-lipoxygenase", "arachidonic 5-lipoxygenase", "arachidonic acid 5-lipoxygenase", "C-5-lipoxygenase", "DELTA5-lipoxygenase", "lipoxygenase 15", "lipoxygenase 5", "PMNL 5-lipoxygenase"]]
@@ -126,30 +133,28 @@ def combine_query(lox, application):
 # Forms a query that includes all synonyms for a certain LOX to expand the number of results found during co-occurrence text mining.
 
 def text_retrieval():
-    for synonym_item in range(0, len(lox_synonym_list)):
-    # for synonym_item in range(0, 1):
+    # for synonym_item in range(0, len(lox_synonym_list)):
+    for synonym_item in range(0, 1):
         keyword = lox_synonym_list[synonym_item][0]
         query = combine_query(keyword, "")
         count = text_mining_get_count(query)
 
         if (count != 0):
             id_list = text_mining_esearch(query, count)
-            # print("COUNT:", count)
-            # print("ID LIST:", id_list)
+
             for article_id in id_list:
                 article_year, article_author_list = text_mining_esummary(article_id)
-                # print("ARTICLE YEAR:", article_year)
-                # print("AUTHOR_LIST:", article_author_list)
+                article_year = int(article_year)
 
                 try:
                     article_keyword_list = text_mining_efetch(article_id)
-                    # print("KEYWORD LIST:", article_keyword_list)
+                    write_retrieval_to_database(article_id, article_year, article_author_list, article_keyword_list, keyword)
 
                     for article_keyword in article_keyword_list:
                         if article_keyword not in application_list:
                             application_list.append(article_keyword)
                 except UnicodeDecodeError:
-                    print("KEYWORD LIST is empty")
+                    write_retrieval_to_database(article_id, article_year, article_author_list, "", keyword)
 # Loops through all LOXs and associated synonyms and performs text retrieval, returning data such as PubMed ID, a list of authors, year of publication and all keywords found in the article.
 
 def text_analysis():
@@ -163,3 +168,119 @@ def text_analysis():
                 relation_list.append([lox_keyword, application])
                 count_list.append(count)
 # Loops through all LOXs and associated synonyms and all known applications and performs text analysis, returning relations found between LOXs and applications and the number of relations.
+
+def write_retrieval_to_database(pmid, year, author_list, keyword_list, soort_lox):
+    cursor.execute("""SELECT MAX(PUBLICATIE_ID) FROM PUBLICATIE""")
+    query_result = cursor.fetchall()
+    query_result = query_result[0][0]
+    publicatie_id = query_result + 1
+
+    try:
+        cursor.execute("""INSERT INTO PUBLICATIE VALUES (:publ_pmid , :publ_year, :publ_id)""",
+                          publ_pmid = pmid,
+                          publ_year = year,
+                          publ_id = publicatie_id
+                       )
+        print("Waardes geïnserteerd op publicatie_id", publicatie_id)
+        db.commit()
+    except cx_Oracle.IntegrityError:
+        cursor.execute("""SELECT PUBLICATIE_ID FROM PUBLICATIE WHERE PMID = :publ_pmid""",
+                          publ_pmid=pmid
+                      )
+        query_result = cursor.fetchall()
+        query_result = query_result[0][0]
+        publicatie_id = query_result
+        print("PMID bestaat al. Huidige publicatie_id betreft:", publicatie_id)
+    # Attempt to insert a PubMed article into the database. If the article already exists, it's ID will be copied for later use.
+
+    for author in author_list:
+        cursor.execute("""SELECT MAX(AUTEURS_ID) FROM AUTEURS""")
+        query_result = cursor.fetchall()
+        query_result = query_result[0][0]
+        auteurs_id = query_result + 1
+        print("HUIDIGE AUTEUR", author, "MET AUTHOR_ID", auteurs_id)
+
+        try:
+            cursor.execute("""INSERT INTO AUTEURS VALUES (:aut_naam , :aut_id)""",
+                              aut_naam=author,
+                              aut_id=auteurs_id
+                           )
+            db.commit()
+            print("Waardes geïnserteerd op auteurs_id", auteurs_id)
+        except cx_Oracle.IntegrityError:
+            cursor.execute("""SELECT AUTEURS_ID FROM AUTEURS WHERE AUTEUR_NAAM = :aut_naam""",
+                              aut_naam=author
+                           )
+            query_result = cursor.fetchall()
+            query_result = query_result[0][0]
+            auteurs_id = query_result
+            print("Auteur bestaat al. Huidige auteurs_id betreft:", auteurs_id)
+        # Attempt to insert an author for a PubMed article into the database. If the author already exists, it's ID will be copied for later use.
+
+        try:
+            cursor.execute("""INSERT INTO REL_AUT_PUBL VALUES (:aut_id , :publ_id)""",
+                              aut_id=auteurs_id,
+                              publ_id=publicatie_id
+                           )
+            db.commit()
+            print("Relatie geïnserteerd op auteurs_id", auteurs_id, "en publicatie_id", publicatie_id)
+        except cx_Oracle.IntegrityError:
+            print("Relatie bestaat al. Huidige auteurs_id betreft:", auteurs_id, "en publicatie_id", publicatie_id)
+        # Attempt to insert a PubMed article - author relationship into the database. Already existing relationships will be ignored and the ID won't be copied.
+    # Goes through all the authors for a PubMed article and attempts to save the data to the database.
+
+    if keyword_list != []:
+        for keyword in keyword_list:
+            cursor.execute("""SELECT MAX(KEYWORDS_ID) FROM KEYWORDS""")
+            query_result = cursor.fetchall()
+            query_result = query_result[0][0]
+            keywords_id = query_result + 1
+            print("HUIDIG KEYWORD", keywords_id)
+
+            try:
+                cursor.execute("""INSERT INTO KEYWORDS VALUES (:keyw , :keyw_id)""",
+                               keyw=keyword.lower(),
+                               keyw_id=keywords_id
+                               )
+                db.commit()
+                print("Waardes geïnserteerd op keywords_id", keywords_id)
+            except cx_Oracle.IntegrityError:
+                cursor.execute("""SELECT KEYWORDS_ID FROM KEYWORDS WHERE KEYWORD = :keyw""",
+                               keyw=keyword.lower()
+                               )
+                query_result = cursor.fetchall()
+                query_result = query_result[0][0]
+                keywords_id = query_result
+                print("Auteur bestaat al. Huidige keywords_id betreft:", keywords_id)
+            # Attempt to insert a keyword for a PubMed article into the database. If the keyword already exists, it's ID will be copied for later use.
+
+            try:
+                cursor.execute("""INSERT INTO REL_KEYW_PUBL VALUES (:keyw_id , :publ_id)""",
+                               keyw_id=keywords_id,
+                               publ_id=publicatie_id
+                               )
+                db.commit()
+                print("Relatie geïnserteerd op keywords_id", keywords_id, "en publicatie_id", publicatie_id)
+            except cx_Oracle.IntegrityError:
+                print("Relatie bestaat al. Huidige keywords_id betreft:", keywords_id, "en publicatie_id", publicatie_id)
+            # Attempt to insert a PubMed article - keyword relationship into the database. Already existing relationships will be ignored and the ID won't be copied.
+    # Goes through all the keywords for a PubMed article and attempts to save the data to the database.
+
+    cursor.execute("""SELECT SOORT_LOX_ID FROM SOORT_LOX WHERE NAAM = :lox""",
+                       lox=soort_lox
+                       )
+    query_result = cursor.fetchall()
+    query_result = query_result[0][0]
+    soort_lox_id = query_result
+
+    try:
+        cursor.execute("""INSERT INTO REL_PUBL_STLOX VALUES (:publ_id , :stlox_id)""",
+                       publ_id=publicatie_id,
+                       stlox_id=soort_lox_id
+                       )
+        db.commit()
+        print("Relatie geïnserteerd op keywords_id", soort_lox_id, "en publicatie_id", publicatie_id)
+    except cx_Oracle.IntegrityError:
+        print("Relatie bestaat al. Huidige keywords_id betreft:", soort_lox_id, "en publicatie_id", publicatie_id)
+    # Attempt to insert a PubMed article - type of LOX relationship into the database. Already existing relationships will be ignored and the ID won't be copied.
+# Saves the data from text_retrieval() to a local database, including PubMed articles, authors, keywords and the type of LOX.
