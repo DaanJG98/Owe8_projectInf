@@ -1,6 +1,6 @@
 # Author:   Koen Rademaker
 # Date:     13/06/2017
-# Version:  0.6
+# Version:  0.7
 # Status:   In progress
 
 # Complete commentary for all functions
@@ -83,7 +83,11 @@ def text_mining_esummary(PMID):
 def text_mining_efetch(PMID):
     temp_keyword_list = []
     handle = Entrez.efetch(db="pubmed", id=PMID, rettype="pubmed")
-    record = handle.read()
+    try:
+        record = handle.read()
+    except UnicodeDecodeError:
+        print("DEBUG - Error reading XML file, skipped the item.")
+        return temp_keyword_list
     record_list = record.split("\n")
     handle.close()
 
@@ -144,14 +148,14 @@ def text_retrieval():
                 try:
                     article_keyword_list = text_mining_efetch(article_id)
                     write_retrieval_to_database(article_id, article_year, article_author_list, article_keyword_list, keyword)
-                    print("DEBUG - Completed write_retrieval_to_database for", lox_synonym_list[synonym_item][0])
+                    print("DEBUG - Completed write_retrieval_to_database")
                     for article_keyword in article_keyword_list:
                         if article_keyword not in application_list:
                             application_list.append(article_keyword.lower())
                     print("DEBUG - Article keywords added to application_list")
                 except UnicodeDecodeError:
                     write_retrieval_to_database(article_id, article_year, article_author_list, "", keyword)
-                print("DEBUG - Completed write_retrieval_to_database for", lox_synonym_list[synonym_item][0])
+                print("DEBUG - Completed write_retrieval_to_database")
     print("DEBUG - COMPLETED text retrieval")
 # Loops through all LOXs and associated synonyms and performs text retrieval, returning data such as PubMed ID, a list of authors, year of publication and all keywords found in the article.
 
@@ -215,6 +219,8 @@ def write_retrieval_to_database(pmid, year, author_list, keyword_list, soort_lox
             query_result = query_result[0][0]
             auteurs_id = query_result
             print("DEBUG - Author exists, current auteurs_id is:", auteurs_id)
+        except UnicodeEncodeError:
+            print("DEBUG - Error with encoding of author name", author)
         # Attempt to insert an author for a PubMed article into the database. If the author already exists, it's ID will be copied for later use.
 
         try:
@@ -253,6 +259,8 @@ def write_retrieval_to_database(pmid, year, author_list, keyword_list, soort_lox
                 keywords_id = query_result
                 print("DEBUG - Keyword already exists, current keywords_id is", keywords_id)
             # Attempt to insert a keyword for a PubMed article into the database. If the keyword already exists, it's ID will be copied for later use.
+            except UnicodeEncodeError:
+                print("DEBUG - Error with encoding of author name", keyword)
 
             try:
                 cursor.execute("""INSERT INTO REL_KEYW_PUBL VALUES (:keyw_id , :publ_id)""",
